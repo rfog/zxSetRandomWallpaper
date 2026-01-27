@@ -12,8 +12,7 @@
 #include <shobjidl.h>
 #include <shlguid.h>
 
-#include <iostream>
-#include <string>
+
 #include <filesystem>
 #include <system_error>
 #include <vector>
@@ -85,33 +84,26 @@ static bool SetWallpaperActiveDesktop(const path& p)
     return ok;
 }
 
-int main(int argc, char** argv)
+#include <shellapi.h>
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-#ifdef _WIN32
-    // Ensure UTF-8 output in Windows console
-    SetConsoleOutputCP(CP_UTF8);
-#endif
+    int argc;
+    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 
     if (argc != 2)
     {
-        std::cout << "USAGE: zxSetRandomWallpaper <wallpaper_path>\n";
+        if(argv) LocalFree(argv);
         return -1;
     }
 
-    const std::string folder(argv[1]);
+    const path dir(argv[1]);
+    LocalFree(argv);
 
     try
     {
-        path dir = path(folder);
-
-        if (!exists(dir))
-        {   
-            std::cerr << "Error: path does not exist: " << folder << '\n';
-            return -1;
-        }
-        if (!is_directory(dir))
+        if (!exists(dir) || !is_directory(dir))
         {
-            std::cerr << "Error: not a directory: " << folder << '\n';
             return -1;
         }
 
@@ -128,7 +120,6 @@ int main(int argc, char** argv)
 
         if (files.empty())
         {
-            std::cerr << "No files found in: " << folder << '\n';
             return -1;
         }
 
@@ -138,31 +129,22 @@ int main(int argc, char** argv)
         std::uniform_int_distribution<size_t> dist(0, files.size() - 1);
         path chosen = files[dist(gen)];
 
-        // FIX 2: In C++20, u8string() returns std::u8string (char8_t), which std::cout doesn't accept.
-        // Since we set CP_UTF8, we can reinterpret_cast to const char*.
-        const auto& u8str = chosen.u8string();
-        std::cout << "Chosen wallpaper: " << reinterpret_cast<const char*>(u8str.c_str()) << '\n';
-
         // Try modern IDesktopWallpaper/IActiveDesktop API first
         if (SetWallpaperActiveDesktop(chosen))
         {
-            std::cout << "Wallpaper set via IDesktopWallpaper/IActiveDesktop.\n";
             return 0;
         }
 
         // Fallback to SPI
         if (SetWallpaperSPI(chosen))
         {
-            std::cout << "Wallpaper set via SystemParametersInfo.\n";
             return 0;
         }
 
-        std::cerr << "Failed to set wallpaper (both SPI and ActiveDesktop failed).\n";
         return -1;
     }
-    catch (const filesystem_error& e)
+    catch (const filesystem_error&)
     {
-        std::cerr << "Filesystem error: " << e.what() << '\n';
         return -1;
     }
 
