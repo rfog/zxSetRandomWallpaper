@@ -3,7 +3,7 @@
 // 2. Windows y OLE
 #include <windows.h>
 
-// 3. ¡CRUCIAL! Tipos de Internet necesarios para IActiveDesktop (struct COMPONENT, etc.)
+// 3. ï¿½CRUCIAL! Tipos de Internet necesarios para IActiveDesktop (struct COMPONENT, etc.)
 #include <wininet.h> 
 
 // 4. Shell headers
@@ -44,29 +44,16 @@ static bool SetWallpaperActiveDesktop(const path& p)
     std::wstring w = p.wstring();
     bool ok = false;
 
-    // Preferred modern API: IDesktopWallpaper (applies per-monitor)
+    // Preferred modern API: IDesktopWallpaper (applies to all monitors)
     IDesktopWallpaper* pDesktopWallpaper = nullptr;
     hr = CoCreateInstance(CLSID_DesktopWallpaper, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&pDesktopWallpaper));
     if (SUCCEEDED(hr) && pDesktopWallpaper)
     {
-        UINT count = 0;
-        if (SUCCEEDED(pDesktopWallpaper->GetMonitorDevicePathCount(&count)))
+        // Passing nullptr for the monitor ID sets the wallpaper for all monitors.
+        hr = pDesktopWallpaper->SetWallpaper(nullptr, w.c_str());
+        if (SUCCEEDED(hr))
         {
-            for (UINT i = 0; i < count; ++i)
-            {
-                PWSTR monitorId = nullptr;
-                if (SUCCEEDED(pDesktopWallpaper->GetMonitorDevicePathAt(i, &monitorId)) && monitorId)
-                {
-                    // Set wallpaper for this monitor
-                    hr = pDesktopWallpaper->SetWallpaper(monitorId, w.c_str());
-                    CoTaskMemFree(monitorId);
-                    if (SUCCEEDED(hr))
-                    {
-                        ok = true; // at least one monitor succeeded
-                    }
-                    // continue trying remaining monitors even if one fails
-                }
-            }
+            ok = true;
         }
         // Optionally set wallpaper position for all monitors (CENTER/CROP/FIT/...)
         // pDesktopWallpaper->SetPosition(DWPOS_CENTER); // example
@@ -156,17 +143,17 @@ int main(int argc, char** argv)
         const auto& u8str = chosen.u8string();
         std::cout << "Chosen wallpaper: " << reinterpret_cast<const char*>(u8str.c_str()) << '\n';
 
-        // Try SPI first
-        if (SetWallpaperSPI(chosen))
+        // Try modern IDesktopWallpaper/IActiveDesktop API first
+        if (SetWallpaperActiveDesktop(chosen))
         {
-            std::cout << "Wallpaper set via SystemParametersInfo.\n";
+            std::cout << "Wallpaper set via IDesktopWallpaper/IActiveDesktop.\n";
             return 0;
         }
 
-        // Fallback to IActiveDesktop
-        if (SetWallpaperActiveDesktop(chosen))
+        // Fallback to SPI
+        if (SetWallpaperSPI(chosen))
         {
-            std::cout << "Wallpaper set via IActiveDesktop.\n";
+            std::cout << "Wallpaper set via SystemParametersInfo.\n";
             return 0;
         }
 

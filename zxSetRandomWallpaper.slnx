@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="zxSetRandomWallpaper/zxSetRandomWallpaper.vcxproj" />
+  <Project Path="zxSetRandomWallpaper/zxSetRandomWallpaper.vcxproj" Id="3513bd0d-cab2-4080-a0d3-587df1d10509" />
 </Solution>
